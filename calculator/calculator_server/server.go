@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"time"
 
@@ -14,6 +15,33 @@ import (
 )
 
 type server struct{}
+
+func (s *server) FindMaximum(stream calculatorpb.Calculator_FindMaximumServer) error {
+	log.Printf("Request for FindMaximum was accepted...\n")
+
+	max := int32(math.MinInt32)
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		number := req.GetNumber()
+		if number > max {
+			err := stream.Send(&calculatorpb.FindMaximumResponse{
+				Maximum: number,
+			})
+			if err != nil {
+				return err
+			}
+
+			max = number
+		}
+	}
+}
 
 func (s *server) ComputeAverage(averageServer calculatorpb.Calculator_ComputeAverageServer) error {
 	log.Printf("Request for ComputeAverage was accepted...\n")
@@ -75,8 +103,9 @@ func (s *server) PrimeNumberDecomposition(req *calculatorpb.PrimeNumberDecomposi
 }
 
 func main() {
+	port := "50051"
 	log.Println("Starting server...")
-	li, err := net.Listen("tcp", ":50051")
+	li, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("Error listening server: %v", err)
 	}
@@ -84,6 +113,7 @@ func main() {
 	s := grpc.NewServer()
 	calculatorpb.RegisterCalculatorServer(s, &server{})
 
+	log.Printf("Server listening on port %s", port)
 	if err := s.Serve(li); err != nil {
 		log.Fatalf("Error serving: %v", err)
 	}
