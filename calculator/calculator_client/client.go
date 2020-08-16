@@ -25,7 +25,69 @@ func main() {
 
 	// doUnary(c)
 	// doServerStreaming(c)
-	doClientStreaming(c)
+	// doClientStreaming(c)
+	doBidirectionalStreaming(c)
+}
+
+func doBidirectionalStreaming(c calculatorpb.CalculatorClient) {
+	stream, err := c.FindMaximum(context.Background())
+	if err != nil {
+		log.Printf("Error creating streaming: %v\n", err)
+	}
+
+	requests := []*calculatorpb.FindMaximumRequest{
+		{
+			Number: 1,
+		},
+		{
+			Number: 5,
+		},
+		{
+			Number: 3,
+		},
+		{
+			Number: 6,
+		},
+		{
+			Number: 2,
+		},
+		{
+			Number: 20,
+		},
+	}
+
+	wg := make(chan struct{})
+
+	go func() {
+		for _, req := range requests {
+			log.Printf("Sending %v...\n", err)
+			err := stream.Send(req)
+			if err != nil {
+				log.Printf("Error sending request: %v", err)
+			}
+
+			time.Sleep(1000 * time.Millisecond)
+		}
+
+		_ = stream.CloseSend()
+	}()
+
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Printf("Erorr reciving response: \n%v\n", err)
+			}
+
+			fmt.Printf("The current maximum number is: %d\n", res.GetMaximum())
+		}
+		close(wg)
+	}()
+
+	<-wg
 }
 
 func doClientStreaming(c calculatorpb.CalculatorClient) {
