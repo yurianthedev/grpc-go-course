@@ -15,6 +15,29 @@ import (
 
 type server struct{}
 
+func (s *server) GreetEveryOne(stream greetpb.GreetService_GreetEveryOneServer) error {
+	log.Printf("Request for GreetEveryOne was accepted...\n")
+
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		firstName := req.GetGreeting().GetFirstName()
+		result := "Hello " + firstName + "! "
+		err = stream.Send(&greetpb.GreetEveryOneResponse{
+			Response: result,
+		})
+		if err != nil {
+			return err
+		}
+	}
+}
+
 func (s *server) Greet(_ context.Context, req *greetpb.GreetRequest) (*greetpb.GreetResponse, error) {
 	log.Println("Request for Greet was accepted...")
 	result := "Hello " + req.Greeting.FirstName
