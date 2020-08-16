@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -22,9 +23,40 @@ func main() {
 
 	c := calculatorpb.NewCalculatorClient(conn)
 
-	doUnary(c)
+	// doUnary(c)
+	// doServerStreaming(c)
+	doClientStreaming(c)
+}
 
-	doServerStreaming(c)
+func doClientStreaming(c calculatorpb.CalculatorClient) {
+	log.Printf("Starting streaming...\n")
+
+	numbers := []int32{1, 3, 3, 5, 2}
+	stream, err := c.ComputeAverage(context.Background())
+	for err != nil {
+		log.Printf("Error creating stream: %v\n", err)
+		return
+	}
+
+	for _, val := range numbers {
+		log.Printf("Sending: %d\n", val)
+		err := stream.Send(&calculatorpb.ComputeAverageRequest{
+			Number: val,
+		})
+
+		time.Sleep(time.Millisecond * 1000)
+
+		if err != nil {
+			log.Printf("Error sending request: %v\n", err)
+		}
+	}
+
+	res, err := stream.CloseAndRecv()
+	if err != nil {
+		log.Printf("Error reciving the response from server: %v", err)
+	}
+
+	fmt.Printf("Response: %v", res)
 }
 
 func doServerStreaming(c calculatorpb.CalculatorClient) {
