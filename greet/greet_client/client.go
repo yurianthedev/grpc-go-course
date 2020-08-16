@@ -25,7 +25,66 @@ func main() {
 
 	// doUnary(c)
 	// doServerStreaming(c)
-	doClientStreaming(c)
+	// doClientStreaming(c)
+	doBidirectionalStreaming(c)
+}
+
+func doBidirectionalStreaming(c greetpb.GreetServiceClient) {
+	log.Println("Starting streaming...")
+
+	stream, err := c.GreetEveryOne(context.Background())
+	if err != nil {
+		log.Fatalf("Error creating stream: %v\n", err)
+	}
+
+	requests := []*greetpb.GreetEveryOneRequest{
+		{
+			Greeting: &greetpb.Greeting{
+				FirstName: "Julian",
+			},
+		},
+		{
+			Greeting: &greetpb.Greeting{
+				FirstName: "Bryan",
+			},
+		},
+		{
+			Greeting: &greetpb.Greeting{
+				FirstName: "Carlos",
+			},
+		},
+	}
+
+	wc := make(chan struct{})
+
+	go func() {
+		for _, req := range requests {
+			log.Printf("Sending: %v\n", req)
+			err := stream.Send(req)
+			time.Sleep(1000 * time.Millisecond)
+			if err != nil {
+				log.Printf("Error sending request: %v\n", err)
+			}
+		}
+		_ = stream.CloseSend()
+	}()
+
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Printf("Error while reciving response: %v\n", err)
+				break
+			}
+			fmt.Printf("Recived: %v\n", res.GetResponse())
+		}
+		close(wc)
+	}()
+
+	<-wc
 }
 
 func doClientStreaming(c greetpb.GreetServiceClient) {
