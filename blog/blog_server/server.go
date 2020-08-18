@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -11,11 +12,46 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/yurianxdev/grpc-course/blog/blogpb"
 )
 
 type server struct{}
+
+func (s server) CreateBlog(_ context.Context, req *blogpb.CreateBlogRequest) (*blogpb.CreateBlogResponse, error) {
+	log.Println("CreateBlog RPC called...")
+	data := req.GetBlog()
+	blog := Blog{
+		AuthorID: data.GetAuthorId(),
+		Title:    data.GetTitle(),
+		Content:  data.GetContent(),
+	}
+
+	result, err := collection.InsertOne(context.Background(), blog)
+	if err != nil {
+		log.Printf("Error inserting blog on collection: %v\n", err)
+		// Return error throw gRPC
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("Internal error: %v", err))
+	}
+
+	oid, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		log.Printf("Error getting OID: %v\n", err)
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("Cannot conver to OID: %v", err))
+	}
+
+	log.Printf("Blog created: %v\n", oid.Hex())
+	return &blogpb.CreateBlogResponse{
+		Blog: &blogpb.Blog{
+			Id:       oid.Hex(),
+			AuthorId: blog.AuthorID,
+			Title:    blog.Title,
+			Content:  blog.Content,
+		},
+	}, nil
+}
 
 type Blog struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty"`
