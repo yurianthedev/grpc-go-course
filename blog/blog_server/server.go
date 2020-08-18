@@ -28,6 +28,7 @@ func (s server) ReadBlog(_ context.Context, req *blogpb.ReadBlogRequest) (*blogp
 	// Parse string to Mongo ObjectId
 	oid, err := primitive.ObjectIDFromHex(blogId)
 	if err != nil {
+		log.Printf("Error parsing id: %v\n", err)
 		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Error parsing id: %v", err))
 	}
 
@@ -38,9 +39,11 @@ func (s server) ReadBlog(_ context.Context, req *blogpb.ReadBlogRequest) (*blogp
 	dbResult := collection.FindOne(context.Background(), filter)
 	// Decode response into Golang native object of type Blog
 	if err := dbResult.Decode(blog); err != nil {
+		log.Printf("Error finding blog: %v\n", err)
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Error finding blog: %v", err))
 	}
 
+	log.Printf("Blog found: %v\n", blog.ID.Hex())
 	return &blogpb.ReadBlogResponse{
 		Blog: &blogpb.Blog{
 			Id:       blog.ID.Hex(),
