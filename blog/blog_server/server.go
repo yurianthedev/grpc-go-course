@@ -21,6 +21,34 @@ import (
 
 type server struct{}
 
+func (s server) DeleteBlog(_ context.Context, req *blogpb.DeleteBlogRequest) (*blogpb.DeleteBlogResponse, error) {
+	log.Println("DeleteBlog RPC called...")
+
+	blogId := req.GetBlogId()
+	// Parse string to Mongo ObjectId
+	oid, err := primitive.ObjectIDFromHex(blogId)
+	if err != nil {
+		log.Printf("Error parsing id: %v\n", err)
+		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Error parsing id: %v", err))
+	}
+
+	filter := bson.M{"_id": oid} // Mongo formatted filter
+	deleteRes, err := collection.DeleteOne(context.Background(), filter)
+	if err != nil {
+		log.Printf("Error deleting blog: %v\n", err)
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("Error deleting blog: %v", err))
+	}
+	if deleteRes.DeletedCount == 0 {
+		log.Printf("Blog not found: %v\n", err)
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Blog not found: %v", err))
+	}
+
+	log.Printf("Removed %d elements: %s\n", deleteRes.DeletedCount, blogId)
+	return &blogpb.DeleteBlogResponse{
+		BlogId: blogId,
+	}, nil
+}
+
 func (s server) UpdateBlog(_ context.Context, req *blogpb.UpdateBlogRequest) (*blogpb.UpdateBlogResponse, error) {
 	log.Println("UpdateBlog RPC called...")
 
@@ -41,7 +69,11 @@ func (s server) UpdateBlog(_ context.Context, req *blogpb.UpdateBlogRequest) (*b
 	updateRes, err := collection.ReplaceOne(context.Background(), filter, &blogObject)
 	if err != nil {
 		log.Printf("Error updating blog: %v\n", err)
-		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Error updating blog: %v", err))
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("Error updating blog: %v", err))
+	}
+	if updateRes.ModifiedCount == 0 {
+		log.Printf("Blog not found: %v\n", err)
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Blog not found: %v", err))
 	}
 
 	log.Printf("Updated %d elements: %v\n", updateRes.ModifiedCount, updateRes.UpsertedID)
