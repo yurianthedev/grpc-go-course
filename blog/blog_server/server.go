@@ -21,6 +21,35 @@ import (
 
 type server struct{}
 
+func (s server) UpdateBlog(_ context.Context, req *blogpb.UpdateBlogRequest) (*blogpb.UpdateBlogResponse, error) {
+	log.Println("UpdateBlog RPC called...")
+
+	blog := req.GetBlog()
+	oid, err := primitive.ObjectIDFromHex(blog.Id)
+	if err != nil {
+		log.Printf("Error parsing id: %v\n", err)
+		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Error parsing id: %v", err))
+	}
+
+	filter := bson.M{"_id": oid} // Mongo formatted filter
+	blogObject := Blog{
+		AuthorID: blog.AuthorId,
+		Title:    blog.Title,
+		Content:  blog.Content,
+	}
+
+	updateRes, err := collection.ReplaceOne(context.Background(), filter, &blogObject)
+	if err != nil {
+		log.Printf("Error updating blog: %v\n", err)
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Error updating blog: %v", err))
+	}
+
+	log.Printf("Updated %d elements: %v\n", updateRes.ModifiedCount, updateRes.UpsertedID)
+	return &blogpb.UpdateBlogResponse{
+		Blog: blog,
+	}, nil
+}
+
 func (s server) ReadBlog(_ context.Context, req *blogpb.ReadBlogRequest) (*blogpb.ReadBlogResponse, error) {
 	log.Println("ReadBlog RPC called...")
 
@@ -32,9 +61,8 @@ func (s server) ReadBlog(_ context.Context, req *blogpb.ReadBlogRequest) (*blogp
 		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Error parsing id: %v", err))
 	}
 
-	blog := &Blog{}
-	// Mongo formatted filter
-	filter := bson.M{"_id": oid}
+	blog := &Blog{}              // Object model to parse in
+	filter := bson.M{"_id": oid} // Mongo formatted filter
 
 	dbResult := collection.FindOne(context.Background(), filter)
 	// Decode response into Golang native object of type Blog
