@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -19,6 +20,36 @@ import (
 )
 
 type server struct{}
+
+func (s server) ReadBlog(_ context.Context, req *blogpb.ReadBlogRequest) (*blogpb.ReadBlogResponse, error) {
+	log.Println("ReadBlog RPC called...")
+
+	blogId := req.GetBlogId()
+	// Parse string to Mongo ObjectId
+	oid, err := primitive.ObjectIDFromHex(blogId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Error parsing id: %v", err))
+	}
+
+	blog := &Blog{}
+	// Mongo formatted filter
+	filter := bson.M{"_id": oid}
+
+	dbResult := collection.FindOne(context.Background(), filter)
+	// Decode response into Golang native object of type Blog
+	if err := dbResult.Decode(blog); err != nil {
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Error finding blog: %v", err))
+	}
+
+	return &blogpb.ReadBlogResponse{
+		Blog: &blogpb.Blog{
+			Id:       blog.ID.Hex(),
+			AuthorId: blog.AuthorID,
+			Title:    blog.Title,
+			Content:  blog.Content,
+		},
+	}, nil
+}
 
 func (s server) CreateBlog(_ context.Context, req *blogpb.CreateBlogRequest) (*blogpb.CreateBlogResponse, error) {
 	log.Println("CreateBlog RPC called...")
