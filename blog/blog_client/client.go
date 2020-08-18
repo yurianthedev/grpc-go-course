@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 
 	"google.golang.org/grpc"
@@ -54,6 +55,36 @@ func main() {
 		Title:    "Another blog",
 		Content:  "Some content",
 	})
+
+	listBlogs(c)
+}
+
+func listBlogs(c blogpb.BlogServiceClient) {
+	log.Println("Calling ListBlog RPC...")
+
+	stream, err := c.ListBlog(context.Background(), &blogpb.ListBlogRequest{})
+	if err != nil {
+		log.Printf("Error calling ListBlog RPC: %v\n", err)
+		return
+	}
+
+	for {
+		res, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("Error recieving data: %v\n", err)
+			break
+		}
+
+		fmt.Printf("Blog recived: %v\n", res.GetBlog())
+	}
+
+	err = stream.CloseSend()
+	if err != nil {
+		log.Printf("Error closing stream: %v\n", err)
+	}
 }
 
 func deleteBlog(c blogpb.BlogServiceClient, id string) {
