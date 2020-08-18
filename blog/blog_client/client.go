@@ -23,6 +23,21 @@ func main() {
 
 	c := blogpb.NewBlogServiceClient(conn)
 	createBlog(c)
+	readBlog(c, "somerandomid")
+	readBlog(c, "5f3b6340b0039109d78d521e")
+}
+
+func readBlog(c blogpb.BlogServiceClient, id string) {
+	log.Println("Calling ReadBlog RPC...")
+
+	res, err := c.ReadBlog(context.Background(), &blogpb.ReadBlogRequest{
+		BlogId: id,
+	})
+	if err != nil {
+		log.Printf("Error reading blog: %v\n", err)
+		return
+	}
+	fmt.Printf("Blog found: %v", res.GetBlog())
 }
 
 func createBlog(c blogpb.BlogServiceClient) {
@@ -38,6 +53,7 @@ func createBlog(c blogpb.BlogServiceClient) {
 	})
 	if err != nil {
 		log.Printf("Error at CreateBlog RPC: %v\n", err)
+		return
 	}
 
 	fmt.Printf("Blog created: %v\n", res.GetBlog())
