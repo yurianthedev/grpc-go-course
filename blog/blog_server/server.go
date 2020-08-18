@@ -21,6 +21,10 @@ import (
 
 type server struct{}
 
+func (s server) ListBlog(request *blogpb.ListBlogRequest, blogServer blogpb.BlogService_ListBlogServer) error {
+	panic("implement me")
+}
+
 func (s server) DeleteBlog(_ context.Context, req *blogpb.DeleteBlogRequest) (*blogpb.DeleteBlogResponse, error) {
 	log.Println("DeleteBlog RPC called...")
 
