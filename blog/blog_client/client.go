@@ -25,6 +25,26 @@ func main() {
 	createBlog(c)
 	readBlog(c, "somerandomid")
 	readBlog(c, "5f3b6340b0039109d78d521e")
+	updateBlog(c, "5f3b6340b0039109d78d521e")
+	readBlog(c, "5f3b6340b0039109d78d521e")
+}
+
+func updateBlog(c blogpb.BlogServiceClient, id string) {
+	log.Println("Calling UpdateBlog RPC...")
+
+	res, err := c.UpdateBlog(context.Background(), &blogpb.UpdateBlogRequest{
+		Blog: &blogpb.Blog{
+			Id:       id,
+			Title:    "Another title",
+			AuthorId: "Another author",
+			Content:  "AnotherContent",
+		},
+	})
+	if err != nil {
+		log.Printf("Error updating blog, %v\n", err)
+	}
+
+	fmt.Printf("Updated Blog: %v\n", res.GetBlog())
 }
 
 func readBlog(c blogpb.BlogServiceClient, id string) {
@@ -37,7 +57,7 @@ func readBlog(c blogpb.BlogServiceClient, id string) {
 		log.Printf("Error reading blog: %v\n", err)
 		return
 	}
-	fmt.Printf("Blog found: %v", res.GetBlog())
+	fmt.Printf("Blog found: %v\n", res.GetBlog())
 }
 
 func createBlog(c blogpb.BlogServiceClient) {
