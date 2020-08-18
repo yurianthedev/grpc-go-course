@@ -21,8 +21,40 @@ import (
 
 type server struct{}
 
-func (s server) ListBlog(request *blogpb.ListBlogRequest, blogServer blogpb.BlogService_ListBlogServer) error {
-	panic("implement me")
+func (s server) ListBlog(_ *blogpb.ListBlogRequest, stream blogpb.BlogService_ListBlogServer) error {
+	log.Println("ListBlog RPC called...")
+
+	// Find all the collection cause it nil argument
+	cursor, err := collection.Find(context.Background(), bson.D{})
+	if err != nil {
+		log.Printf("Error finding the blogs: %v\n", err)
+		return status.Errorf(codes.Internal, fmt.Sprintf("Error finding the blogs: %v", err))
+	}
+	defer cursor.Close(context.Background())
+
+	for cursor.Next(context.Background()) {
+		data := &Blog{}
+		err := cursor.Decode(data)
+		if err != nil {
+			log.Printf("Error decoding data: %v\n", err)
+			return status.Errorf(codes.Internal, fmt.Sprintf("Error decoding data: %v", err))
+		}
+
+		err = stream.Send(&blogpb.ListBlogResponse{
+			Blog: &blogpb.Blog{
+				Id:       data.ID.Hex(),
+				AuthorId: data.AuthorID,
+				Title:    data.Title,
+				Content:  data.Content,
+			},
+		})
+
+		if err != nil {
+			log.Printf("Error sending %v data: %v\n", data, err)
+		}
+	}
+
+	return nil
 }
 
 func (s server) DeleteBlog(_ context.Context, req *blogpb.DeleteBlogRequest) (*blogpb.DeleteBlogResponse, error) {
